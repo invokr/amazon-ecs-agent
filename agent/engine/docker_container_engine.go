@@ -310,8 +310,25 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthen
 	return authConfig, nil
 }
 
+func checkIfNetHostEnvVarExists(config_env *[]string) bool {
+	for _, v := range *config_env {
+		split_v := strings.Split(v, "=")
+		if len(split_v) == 2 {
+			if split_v[0] == "ECS_NET" && split_v[1] == "host" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
 	timeout := ttime.After(createContainerTimeout)
+
+	// Conditionally enable net=host based on an env var.
+	if checkIfNetHostEnvVarExists(&config.Env) == true {
+		hostConfig.NetworkMode = "host"
+	}
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	response := make(chan DockerContainerMetadata, 1)
